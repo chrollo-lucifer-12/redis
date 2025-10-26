@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -64,8 +65,9 @@ func (s *server) Start() error {
 
 func (s *server) handleConn(clientId int64, conn net.Conn) {
 	s.logger.Info("new client connected", "id", clientId, "host", conn.RemoteAddr().String())
+	reader := bufio.NewReader(conn)
 	for {
-		request, err := readArray(conn, true)
+		request, err := readArray(reader, true)
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
 				s.logger.Error("error reading from client", "id", clientId, "err", err)
