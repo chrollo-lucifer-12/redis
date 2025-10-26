@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"log/slog"
 	"net"
@@ -11,6 +12,15 @@ import (
 	"sync"
 	"sync/atomic"
 )
+
+const nShard = 1000
+
+func calculateShard(s string) int {
+	hasher := fnv.New64()
+	_, _ = hasher.Write([]byte(s))
+	hash := hasher.Sum64()
+	return int(hash % uint64(nShard))
+}
 
 type server struct {
 	listener     net.Listener
@@ -20,12 +30,12 @@ type server struct {
 	lastClientId int64
 	clientsLock  sync.Mutex
 	shuttingDown bool
-	dbLock       sync.RWMutex
-	db           map[string]string
+	dbLock       [nShard]sync.RWMutex
+	db           [nShard]map[string]string
 }
 
 func NewServer(listener net.Listener, logger *slog.Logger) *server {
-	return &server{
+	s := &server{
 		listener:     listener,
 		logger:       logger,
 		started:      atomic.Bool{},
@@ -33,15 +43,21 @@ func NewServer(listener net.Listener, logger *slog.Logger) *server {
 		lastClientId: 0,
 		clientsLock:  sync.Mutex{},
 		shuttingDown: false,
-		db:           make(map[string]string),
+		db:           [nShard]map[string]string{},
+		dbLock:       [nShard]sync.RWMutex{},
 	}
+
+	for i := 0; i < nShard; i++ {
+		s.db[i] = make(map[string]string)
+	}
+
+	return s
 }
 
 func (s *server) Start() error {
 	if !s.started.CompareAndSwap(false, true) {
 		return fmt.Errorf("server already started")
 	}
-	s.logger.Info("server started")
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
@@ -64,7 +80,6 @@ func (s *server) Start() error {
 }
 
 func (s *server) handleConn(clientId int64, conn net.Conn) {
-	s.logger.Info("new client connected", "id", clientId, "host", conn.RemoteAddr().String())
 	reader := bufio.NewReader(conn)
 	for {
 		request, err := readArray(reader, true)
@@ -74,20 +89,14 @@ func (s *server) handleConn(clientId int64, conn net.Conn) {
 			}
 			break
 		}
-		s.logger.Debug(
-			"request received",
-			slog.Any("request", request),
-			slog.Int64("id", clientId),
-		)
-
 		if len(request) == 0 {
-			s.logger.Error("missing command in the request", slog.Int64("clientId", clientId))
+			//	s.logger.Error("missing command in the request", slog.Int64("clientId", clientId))
 			break
 		}
 
 		commandName, ok := request[0].(string)
 		if !ok {
-			s.logger.Error("command is not a string", "id", clientId)
+			//	s.logger.Error("command is not a string", "id", clientId)
 			break
 		}
 
@@ -100,11 +109,11 @@ func (s *server) handleConn(clientId int64, conn net.Conn) {
 		}
 
 		if _, err := conn.Write([]byte("+OK\r\n")); err != nil {
-			s.logger.Error(
-				"error writing to client",
-				slog.Int64("clientId", clientId),
-				slog.String("err", err.Error()),
-			)
+			// s.logger.Error(
+			// 	"error writing to client",
+			// 	slog.Int64("clientId", clientId),
+			// 	slog.String("err", err.Error()),
+			// )
 			break
 		}
 	}
@@ -117,7 +126,6 @@ func (s *server) handleConn(clientId int64, conn net.Conn) {
 	delete(s.clients, clientId)
 	s.clientsLock.Unlock()
 
-	s.logger.Info("client disconnecting", "id", clientId)
 	if err := conn.Close(); err != nil {
 		s.logger.Error("cannot close client", "clientId", clientId, "err", err)
 	}
@@ -133,7 +141,6 @@ func (s *server) Stop() error {
 	s.shuttingDown = true
 
 	for clientId, conn := range s.clients {
-		s.logger.Info("closing client", "clientId", clientId)
 		if err := conn.Close(); err != nil {
 			s.logger.Error("cannot close client", "clientId", clientId, "err", err)
 		}
@@ -155,10 +162,10 @@ func (s *server) handleGetCommand(clientId int64, conn net.Conn, command []any) 
 		_, err := conn.Write([]byte("-ERR key is not a string\r\n"))
 		return err
 	}
-	s.logger.Debug("GET key", "key", key, "id", clientId)
-	s.dbLock.RLock()
-	value, ok := s.db[key]
-	s.dbLock.RUnlock()
+	shard := calculateShard(key)
+	s.dbLock[shard].RLock()
+	value, ok := s.db[shard][key]
+	s.dbLock[shard].RUnlock()
 	var err error
 	if ok {
 		resp := fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
@@ -184,10 +191,10 @@ func (s *server) handleSetCommand(clientId int64, conn net.Conn, command []any) 
 		_, err := conn.Write([]byte("-ERR value is not a string\r\n"))
 		return err
 	}
-	s.logger.Debug("SET key", "key", key, "value", value, "id", clientId)
-	s.dbLock.Lock()
-	s.db[key] = value
-	s.dbLock.Unlock()
+	shard := calculateShard(key)
+	s.dbLock[shard].Lock()
+	s.db[shard][key] = value
+	s.dbLock[shard].Unlock()
 	_, err := conn.Write([]byte("+OK\r\n"))
 	return err
 }
