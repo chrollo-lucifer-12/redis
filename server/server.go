@@ -19,6 +19,8 @@ type server struct {
 	lastClientId int64
 	clientsLock  sync.Mutex
 	shuttingDown bool
+	dbLock       sync.RWMutex
+	db           map[string]string
 }
 
 func NewServer(listener net.Listener, logger *slog.Logger) *server {
@@ -30,6 +32,7 @@ func NewServer(listener net.Listener, logger *slog.Logger) *server {
 		lastClientId: 0,
 		clientsLock:  sync.Mutex{},
 		shuttingDown: false,
+		db:           make(map[string]string),
 	}
 }
 
@@ -88,7 +91,9 @@ func (s *server) handleConn(clientId int64, conn net.Conn) {
 
 		switch strings.ToUpper(commandName) {
 		case "GET":
+			err = s.handleGetCommand(clientId, conn, request)
 		case "SET":
+			err = s.handleSetCommand(clientId, conn, request)
 		default:
 		}
 
@@ -136,4 +141,51 @@ func (s *server) Stop() error {
 		s.logger.Error("cannot stop listener", "err", err)
 	}
 	return nil
+}
+
+func (s *server) handleGetCommand(clientId int64, conn net.Conn, command []any) error {
+	if len(command) < 2 {
+		_, err := conn.Write([]byte("-ERR missing key\r\n"))
+		return err
+	}
+	key, ok := command[1].(string)
+	if !ok {
+		_, err := conn.Write([]byte("-ERR key is not a string\r\n"))
+		return err
+	}
+	s.logger.Debug("GET key", "key", key, "id", clientId)
+	s.dbLock.RLock()
+	value, ok := s.db[key]
+	s.dbLock.RUnlock()
+	var err error
+	if ok {
+		resp := fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
+		_, err = conn.Write([]byte(resp))
+	} else {
+		_, err = conn.Write([]byte("_\r\n"))
+	}
+
+	return err
+}
+func (s *server) handleSetCommand(clientId int64, conn net.Conn, command []any) error {
+	if len(command) < 3 {
+		_, err := conn.Write([]byte("-ERR missing key\r\n"))
+		return err
+	}
+	key, ok := command[1].(string)
+	if !ok {
+		_, err := conn.Write([]byte("-ERR key is not a string\r\n"))
+		return err
+	}
+	value, ok := command[2].(string)
+	if !ok {
+		_, err := conn.Write([]byte("-ERR value is not a string\r\n"))
+		return err
+	}
+	s.logger.Debug("SET key", "key", key, "value", value, "id", clientId)
+	s.dbLock.Lock()
+	s.db[key] = value
+	s.dbLock.Unlock()
+	_, err := conn.Write([]byte("+OK\r\n"))
+	return err
 }
