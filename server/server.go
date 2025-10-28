@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"hash/fnv"
@@ -11,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unsafe"
 )
 
 const nShard = 1000
@@ -80,31 +80,34 @@ func (s *server) Start() error {
 }
 
 func (s *server) handleConn(clientId int64, conn net.Conn) {
-	reader := bufio.NewReader(conn)
+	//reader := bufio.NewReader(conn)
+	reader := newMessageReader(conn)
 	for {
-		request, err := readArray(reader, true)
+		//request, err := readArray(reader, true)
+		length, err := reader.ReadArrayLen()
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
 				s.logger.Error("error reading from client", "id", clientId, "err", err)
 			}
 			break
 		}
-		if len(request) == 0 {
+		if length == 0 {
 			//	s.logger.Error("missing command in the request", slog.Int64("clientId", clientId))
 			break
 		}
 
-		commandName, ok := request[0].(string)
-		if !ok {
-			//	s.logger.Error("command is not a string", "id", clientId)
+		//commandName, ok := request[0].(string)
+		commandName, err := reader.ReadString()
+		if err != nil {
 			break
 		}
+		unsafeToUpper(commandName)
 
 		switch strings.ToUpper(commandName) {
 		case "GET":
-			err = s.handleGetCommand(clientId, conn, request)
+			err = s.handleGetCommand(reader, conn)
 		case "SET":
-			err = s.handleSetCommand(clientId, conn, request)
+			err = s.handleSetCommand(reader, conn)
 		default:
 		}
 
@@ -152,21 +155,16 @@ func (s *server) Stop() error {
 	return nil
 }
 
-func (s *server) handleGetCommand(clientId int64, conn net.Conn, command []any) error {
-	if len(command) < 2 {
-		_, err := conn.Write([]byte("-ERR missing key\r\n"))
-		return err
-	}
-	key, ok := command[1].(string)
-	if !ok {
-		_, err := conn.Write([]byte("-ERR key is not a string\r\n"))
+func (s *server) handleGetCommand(reader *messageReader, conn io.Writer) error {
+	key, err := reader.ReadString()
+	if err != nil {
+		_, err = conn.Write([]byte("-ERR key is not a string\r\n"))
 		return err
 	}
 	shard := calculateShard(key)
 	s.dbLock[shard].RLock()
 	value, ok := s.db[shard][key]
 	s.dbLock[shard].RUnlock()
-	var err error
 	if ok {
 		resp := fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
 		_, err = conn.Write([]byte(resp))
@@ -176,18 +174,14 @@ func (s *server) handleGetCommand(clientId int64, conn net.Conn, command []any) 
 
 	return err
 }
-func (s *server) handleSetCommand(clientId int64, conn net.Conn, command []any) error {
-	if len(command) < 3 {
-		_, err := conn.Write([]byte("-ERR missing key\r\n"))
-		return err
-	}
-	key, ok := command[1].(string)
-	if !ok {
+func (s *server) handleSetCommand(reader *messageReader, conn io.Writer) error {
+	key, err := reader.ReadString()
+	if err != nil {
 		_, err := conn.Write([]byte("-ERR key is not a string\r\n"))
 		return err
 	}
-	value, ok := command[2].(string)
-	if !ok {
+	value, err := reader.ReadString()
+	if err != nil {
 		_, err := conn.Write([]byte("-ERR value is not a string\r\n"))
 		return err
 	}
@@ -195,6 +189,17 @@ func (s *server) handleSetCommand(clientId int64, conn net.Conn, command []any) 
 	s.dbLock[shard].Lock()
 	s.db[shard][key] = value
 	s.dbLock[shard].Unlock()
-	_, err := conn.Write([]byte("+OK\r\n"))
+	_, err = conn.Write([]byte("+OK\r\n"))
 	return err
+}
+
+func unsafeToUpper(s string) {
+	bytes := unsafe.Slice(unsafe.StringData(s), len(s))
+	for i := 0; i < len(bytes); i++ {
+		b := bytes[i]
+		if b >= 'a' && b <= 'z' {
+			b = b + 'A' - 'a'
+			bytes[i] = b
+		}
+	}
 }
