@@ -17,6 +17,7 @@ type server struct {
 	clientsLock  sync.Mutex
 	shuttingDown bool
 	db           *database
+	listDB       *listDB
 }
 
 func NewServer(listener net.Listener, logger *slog.Logger) *server {
@@ -29,6 +30,7 @@ func NewServer(listener net.Listener, logger *slog.Logger) *server {
 		clientsLock:  sync.Mutex{},
 		shuttingDown: false,
 		db:           newDB(),
+		listDB:       newListDb(),
 	}
 	return s
 }
