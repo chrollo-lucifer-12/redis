@@ -8,8 +8,6 @@ import (
 	"sync/atomic"
 )
 
-const nShard = 1000
-
 type server struct {
 	listener     net.Listener
 	logger       *slog.Logger
@@ -18,7 +16,7 @@ type server struct {
 	lastClientId int64
 	clientsLock  sync.Mutex
 	shuttingDown bool
-	db           sync.Map
+	db           *database
 }
 
 func NewServer(listener net.Listener, logger *slog.Logger) *server {
@@ -30,7 +28,7 @@ func NewServer(listener net.Listener, logger *slog.Logger) *server {
 		lastClientId: 0,
 		clientsLock:  sync.Mutex{},
 		shuttingDown: false,
-		db:           sync.Map{},
+		db:           newDB(),
 	}
 	return s
 }
@@ -57,6 +55,7 @@ func (s *server) Start() error {
 		createPeer := newPeer(conn, msgCh)
 		s.clients[clientId] = createPeer
 		s.clientsLock.Unlock()
+		go s.startCleaner()
 		go createPeer.readLoop()
 		go s.handleConn(clientId, createPeer)
 	}
@@ -71,7 +70,10 @@ func (s *server) handleConn(clientId int64, p *peer) {
 		if err != nil {
 			break
 		}
-		s.handleCommands(request, p.conn)
+		err = s.handleCommands(request, p.conn)
+		if err != nil {
+			break
+		}
 	}
 
 	s.clientsLock.Lock()
