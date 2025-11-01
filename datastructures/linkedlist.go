@@ -131,6 +131,37 @@ func (l *LinkedList) GetElementsInRange(start, stop int) []string {
 	return res
 }
 
+func (l *LinkedList) TrimList(start, stop int) {
+	length := l.len
+
+	if start < 0 {
+		start = length + start
+	}
+	if stop < 0 {
+		stop = length + stop
+	}
+
+	if start < 0 {
+		start = 0
+	}
+	if stop >= length {
+		stop = length - 1
+	}
+
+	if start >= length || start > stop {
+		return
+	}
+
+	if start > 0 {
+		l.RemoveFromHead(start)
+	}
+	length = l.len
+	remaining := length - (stop - start + 1)
+	if remaining > 0 {
+		l.RemoveFromTail(remaining)
+	}
+}
+
 func (l *LinkedList) Length() int {
 	return l.len
 }

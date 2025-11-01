@@ -28,7 +28,22 @@ func (s *server) handleCommands(commands []string, w io.Writer) error {
 		err = s.handleLlenCommand(commands[1:], w)
 	case "LRANGE":
 		err = s.handleLRangeCommand(commands[1:], w)
+	case "LTRIM":
+		err = s.handleTrimCommand(commands[1:], w)
 	}
+	return err
+}
+
+func (s *server) handleTrimCommand(commands []string, conn io.Writer) error {
+	key := commands[0]
+	startStr := commands[1]
+	stopStr := commands[2]
+
+	start, _ := strconv.Atoi(startStr)
+	stop, _ := strconv.Atoi(stopStr)
+	s.listDB.LTRIM(key, start, stop)
+
+	_, err := conn.Write([]byte("+OK\r\n"))
 	return err
 }
 

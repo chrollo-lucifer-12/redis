@@ -82,3 +82,12 @@ func (l *listDB) LRANGE(key string, start int, stop int) []string {
 	res = l1.GetElementsInRange(start, stop)
 	return res
 }
+
+func (l *listDB) LTRIM(key string, start, stop int) {
+	list, ok := l.listMap.Load(key)
+	if !ok {
+		return
+	}
+	l1 := list.(*datastructures.LinkedList)
+	l1.TrimList(start, stop)
+}
