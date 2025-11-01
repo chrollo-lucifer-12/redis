@@ -94,6 +94,29 @@ func (l *LinkedList) InsertAtTail(elements []string) int {
 	return l.Length()
 }
 
+func (l *LinkedList) GetElementsInRange(start int, stop int) []string {
+	len := l.len
+	var res []string
+	if start > len {
+		return res
+	}
+	if stop > len {
+		stop = len - 1
+	}
+	count := 0
+	temp := l.head
+	for count < start {
+		temp = temp.next
+		count++
+	}
+	for count <= stop {
+		res = append(res, temp.value)
+		count++
+		temp = temp.next
+	}
+	return res
+}
+
 func (l *LinkedList) Length() int {
 	return l.len
 }

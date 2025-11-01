@@ -26,7 +26,29 @@ func (s *server) handleCommands(commands []string, w io.Writer) error {
 		err = s.handleRpopCommand(commands[1:], w)
 	case "LLEN":
 		err = s.handleLlenCommand(commands[1:], w)
+	case "LRANGE":
+		err = s.handleLRangeCommand(commands[1:], w)
 	}
+	return err
+}
+
+func (s *server) handleLRangeCommand(commands []string, conn io.Writer) error {
+	key := commands[0]
+	startStr := commands[1]
+	stopStr := commands[2]
+
+	start, _ := strconv.Atoi(startStr)
+	stop, _ := strconv.Atoi(stopStr)
+
+	elements := s.listDB.LRANGE(key, start, stop)
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("*%d\r\n", len(elements)))
+
+	for _, el := range elements {
+		sb.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(el), el))
+	}
+
+	_, err := conn.Write([]byte(sb.String()))
 	return err
 }
 

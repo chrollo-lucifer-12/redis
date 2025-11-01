@@ -71,3 +71,14 @@ func (l *listDB) LLEN(key string) int {
 	l1 := list.(*datastructures.LinkedList)
 	return l1.Length()
 }
+
+func (l *listDB) LRANGE(key string, start int, stop int) []string {
+	list, ok := l.listMap.Load(key)
+	var res []string
+	if !ok {
+		return res
+	}
+	l1 := list.(*datastructures.LinkedList)
+	res = l1.GetElementsInRange(start, stop)
+	return res
+}
