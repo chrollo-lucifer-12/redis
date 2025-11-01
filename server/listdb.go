@@ -1,21 +1,29 @@
 package server
 
-import "github.com/chrollo-lucifer-12/redis/datastructures"
+import (
+	"sync"
+
+	"github.com/chrollo-lucifer-12/redis/datastructures"
+)
 
 type listDB struct {
-	listMap map[string]*datastructures.LinkedList
+	//listMap map[string]*datastructures.LinkedList
+	listMap sync.Map
 }
 
 func newListDb() *listDB {
-	return &listDB{
-		listMap: make(map[string]*datastructures.LinkedList),
-	}
+	return &listDB{}
 }
 
 func (l *listDB) LPUSH(key string, elements []string) int {
-	_, ok := l.listMap[key]
+	list, ok := l.listMap.Load(key)
 	if !ok {
-		l.listMap[key] = datastructures.NewLinkedList()
+		newList := datastructures.NewLinkedList()
+		l.listMap.Store(key, newList)
+		list = newList
 	}
-	return l.listMap[key].InsertAtHead(elements)
+
+	l1 := list.(*datastructures.LinkedList)
+
+	return l1.InsertAtHead(elements)
 }
