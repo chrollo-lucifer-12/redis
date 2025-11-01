@@ -62,3 +62,12 @@ func (l *listDB) RPOP(key string, count int) []string {
 	res = l1.RemoveFromTail(count)
 	return res
 }
+
+func (l *listDB) LLEN(key string) int {
+	list, ok := l.listMap.Load(key)
+	if !ok {
+		return 0
+	}
+	l1 := list.(*datastructures.LinkedList)
+	return l1.Length()
+}

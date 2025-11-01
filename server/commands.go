@@ -24,6 +24,8 @@ func (s *server) handleCommands(commands []string, w io.Writer) error {
 		err = s.handleLpopCommand(commands[1:], w)
 	case "RPOP":
 		err = s.handleRpopCommand(commands[1:], w)
+	case "LLEN":
+		err = s.handleLlenCommand(commands[1:], w)
 	}
 	return err
 }
@@ -103,6 +105,14 @@ func (s *server) handleLpushCommand(commands []string, conn io.Writer) error {
 	key := commands[0]
 	values := commands[1:]
 	len := s.listDB.LPUSH(key, values)
+	resp := fmt.Sprintf(":%d\r\n", len)
+	_, err := conn.Write([]byte(resp))
+	return err
+}
+
+func (s *server) handleLlenCommand(commands []string, conn io.Writer) error {
+	key := commands[0]
+	len := s.listDB.LLEN(key)
 	resp := fmt.Sprintf(":%d\r\n", len)
 	_, err := conn.Write([]byte(resp))
 	return err
