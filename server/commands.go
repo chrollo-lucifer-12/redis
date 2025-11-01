@@ -20,7 +20,73 @@ func (s *server) handleCommands(commands []string, w io.Writer) error {
 		err = s.handleLpushCommand(commands[1:], w)
 	case "RPUSH":
 		err = s.handleRpushCommand(commands[1:], w)
+	case "LPOP":
+		err = s.handleLpopCommand(commands[1:], w)
+	case "RPOP":
+		err = s.handleRpopCommand(commands[1:], w)
 	}
+	return err
+}
+
+func (s *server) handleLpopCommand(commands []string, conn io.Writer) error {
+	key := commands[0]
+	countStr := commands[1]
+	count, _ := strconv.Atoi(countStr)
+
+	elements := s.listDB.LPOP(key, count)
+
+	var resp string
+	if len(elements) == 0 {
+		if count == 1 {
+			resp = "_\r\n"
+		} else {
+			resp = "*0\r\n"
+		}
+	} else {
+		if count == 1 {
+			resp = fmt.Sprintf("$%d\r\n%s\r\n", len(elements[0]), elements[0])
+		} else {
+			var b strings.Builder
+			b.WriteString(fmt.Sprintf("*%d\r\n", len(elements)))
+			for _, el := range elements {
+				b.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(el), el))
+			}
+			resp = b.String()
+		}
+	}
+
+	_, err := conn.Write([]byte(resp))
+	return err
+}
+
+func (s *server) handleRpopCommand(commands []string, conn io.Writer) error {
+	key := commands[0]
+	countStr := commands[1]
+	count, _ := strconv.Atoi(countStr)
+
+	elements := s.listDB.RPOP(key, count)
+
+	var resp string
+	if len(elements) == 0 {
+		if count == 1 {
+			resp = "_\r\n"
+		} else {
+			resp = "*0\r\n"
+		}
+	} else {
+		if count == 1 {
+			resp = fmt.Sprintf("$%d\r\n%s\r\n", len(elements[0]), elements[0])
+		} else {
+			var b strings.Builder
+			b.WriteString(fmt.Sprintf("*%d\r\n", len(elements)))
+			for _, el := range elements {
+				b.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(el), el))
+			}
+			resp = b.String()
+		}
+	}
+
+	_, err := conn.Write([]byte(resp))
 	return err
 }
 

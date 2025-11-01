@@ -40,3 +40,25 @@ func (l *listDB) RPUSH(key string, elements []string) int {
 
 	return l1.InsertAtTail(elements)
 }
+
+func (l *listDB) LPOP(key string, count int) []string {
+	list, ok := l.listMap.Load(key)
+	var res []string
+	if !ok {
+		return res
+	}
+	l1 := list.(*datastructures.LinkedList)
+	res = l1.RemoveFromHead(count)
+	return res
+}
+
+func (l *listDB) RPOP(key string, count int) []string {
+	list, ok := l.listMap.Load(key)
+	var res []string
+	if !ok {
+		return res
+	}
+	l1 := list.(*datastructures.LinkedList)
+	res = l1.RemoveFromTail(count)
+	return res
+}

@@ -3,12 +3,14 @@ package datastructures
 type node struct {
 	value string
 	next  *node
+	prev  *node
 }
 
-func newNode(value string, next *node) *node {
+func newNode(value string, next *node, prev *node) *node {
 	return &node{
 		value: value,
 		next:  next,
+		prev:  prev,
 	}
 }
 
@@ -26,14 +28,48 @@ func NewLinkedList() *LinkedList {
 	}
 }
 
+func (l *LinkedList) RemoveFromHead(count int) []string {
+	var res []string
+	if l.len == 0 {
+		return res
+	}
+	for count > 0 && l.len > 0 {
+		oldHead := l.head
+		res = append(res, oldHead.value)
+		l.head = oldHead.next
+		oldHead.next = nil
+		l.len--
+		count--
+	}
+	return res
+}
+
+func (l *LinkedList) RemoveFromTail(count int) []string {
+	var res []string
+	if l.len == 0 {
+		return res
+	}
+	for count > 0 && l.len > 0 {
+		oldTail := l.tail
+		res = append(res, oldTail.value)
+		l.tail = oldTail.prev
+		oldTail.prev = nil
+		l.len--
+		count--
+	}
+	return res
+}
+
 func (l *LinkedList) InsertAtHead(elements []string) int {
 	for _, element := range elements {
-		nodeToInsert := newNode(element, nil)
+		nodeToInsert := newNode(element, nil, nil)
 		if l.head == nil {
 			l.head = nodeToInsert
 			l.tail = nodeToInsert
 		} else {
-			nodeToInsert.next = l.head
+			oldHead := l.head
+			nodeToInsert.next = oldHead
+			oldHead.prev = nodeToInsert
 			l.head = nodeToInsert
 		}
 		l.len++
@@ -43,12 +79,14 @@ func (l *LinkedList) InsertAtHead(elements []string) int {
 
 func (l *LinkedList) InsertAtTail(elements []string) int {
 	for _, element := range elements {
-		nodeToInsert := newNode(element, nil)
+		nodeToInsert := newNode(element, nil, nil)
 		if l.head == nil {
 			l.head = nodeToInsert
 			l.tail = nodeToInsert
 		} else {
-			l.tail.next = nodeToInsert
+			oldTail := l.tail
+			oldTail.next = nodeToInsert
+			nodeToInsert.prev = oldTail
 			l.tail = nodeToInsert
 		}
 		l.len++
