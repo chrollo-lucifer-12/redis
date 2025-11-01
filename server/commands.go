@@ -18,7 +18,18 @@ func (s *server) handleCommands(commands []string, w io.Writer) error {
 		err = s.handleSetCommand(commands[1:], w)
 	case "LPUSH":
 		err = s.handleLpushCommand(commands[1:], w)
+	case "RPUSH":
+		err = s.handleRpushCommand(commands[1:], w)
 	}
+	return err
+}
+
+func (s *server) handleRpushCommand(commands []string, conn io.Writer) error {
+	key := commands[0]
+	values := commands[1:]
+	len := s.listDB.RPUSH(key, values)
+	resp := fmt.Sprintf(":%d\r\n", len)
+	_, err := conn.Write([]byte(resp))
 	return err
 }
 

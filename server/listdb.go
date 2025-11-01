@@ -27,3 +27,16 @@ func (l *listDB) LPUSH(key string, elements []string) int {
 
 	return l1.InsertAtHead(elements)
 }
+
+func (l *listDB) RPUSH(key string, elements []string) int {
+	list, ok := l.listMap.Load(key)
+	if !ok {
+		newList := datastructures.NewLinkedList()
+		l.listMap.Store(key, newList)
+		list = newList
+	}
+
+	l1 := list.(*datastructures.LinkedList)
+
+	return l1.InsertAtTail(elements)
+}
