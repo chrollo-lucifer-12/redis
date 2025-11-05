@@ -40,7 +40,26 @@ func (s *server) handleCommands(commands []string, w io.Writer) error {
 		err = s.handleScardCommand(commands[1:], w)
 	case "SINTER":
 		err = s.handleSinterCommand(commands[1:], w)
+	case "ZADD":
+		err = s.handleZaddCommand(commands[1:], w)
 	}
+	return err
+}
+
+func (s *server) handleZaddCommand(commands []string, conn io.Writer) error {
+	key := commands[0]
+	elements := commands[1:]
+
+	for i := 0; i < len(elements); i += 2 {
+		scoreStr := elements[i]
+		memberStr := elements[i+1]
+		score, _ := strconv.Atoi(scoreStr)
+		s.sortedSetsDB.ZADD(key, memberStr, score)
+	}
+
+	res := (len(elements) - 1) / 2
+	resp := ":" + strconv.Itoa(res) + "\r\n"
+	_, err := conn.Write([]byte(resp))
 	return err
 }
 

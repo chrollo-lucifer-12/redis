@@ -19,6 +19,7 @@ type server struct {
 	db           *database
 	listDB       *listDB
 	setsDB       *setsDB
+	sortedSetsDB *sortedSetsDB
 }
 
 func NewServer(listener net.Listener, logger *slog.Logger) *server {
@@ -33,6 +34,7 @@ func NewServer(listener net.Listener, logger *slog.Logger) *server {
 		db:           newDB(),
 		listDB:       newListDb(),
 		setsDB:       newSetsDB(),
+		sortedSetsDB: newSortedSetsDb(),
 	}
 	return s
 }
