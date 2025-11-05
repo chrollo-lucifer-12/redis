@@ -53,3 +53,42 @@ func (s *setsDB) SISMEMBER(key string, element string) int {
 		return 0
 	}
 }
+
+func (s *setsDB) SCARD(key string) int {
+	set, ok := s.setsMap.Load(key)
+	if !ok {
+		return 0
+	}
+	s1 := set.(*datastructures.HashSet)
+	return s1.Size()
+}
+
+func (s *setsDB) SINTER(keys []string) []string {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	firstSet, ok := s.setsMap.Load(keys[0])
+	if !ok {
+		return nil
+	}
+
+	f := firstSet.(*datastructures.HashSet)
+
+	result := make([]string, 0)
+	for _, val := range f.Elements() {
+		inAll := true
+		for _, key := range keys[1:] {
+			set, exists := s.setsMap.Load(key)
+			s1 := set.(*datastructures.HashSet)
+			if !exists || s1.Contains(val) {
+				inAll = false
+				break
+			}
+		}
+		if inAll {
+			result = append(result, val)
+		}
+	}
+	return result
+}

@@ -36,7 +36,30 @@ func (s *server) handleCommands(commands []string, w io.Writer) error {
 		err = s.handleSremCommand(commands[1:], w)
 	case "SISMEMBER":
 		err = s.handleSismemberCommand(commands[1:], w)
+	case "SCARD":
+		err = s.handleScardCommand(commands[1:], w)
+	case "SINTER":
+		err = s.handleSinterCommand(commands[1:], w)
 	}
+	return err
+}
+
+func (s *server) handleSinterCommand(commands []string, conn io.Writer) error {
+	elements := s.setsDB.SINTER(commands)
+	reply := fmt.Sprintf("*%d\r\n", len(elements))
+	for _, elem := range elements {
+		reply += fmt.Sprintf("$%d\r\n%s\r\n", len(elem), elem)
+	}
+
+	_, err := conn.Write([]byte(reply))
+	return err
+}
+
+func (s *server) handleScardCommand(commands []string, conn io.Writer) error {
+	key := commands[0]
+	size := s.setsDB.SCARD(key)
+	resp := ":" + strconv.Itoa(size) + "\r\n"
+	_, err := conn.Write([]byte(resp))
 	return err
 }
 

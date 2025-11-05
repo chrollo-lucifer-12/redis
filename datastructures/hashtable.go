@@ -83,3 +83,12 @@ func (s *HashSet) Erase(key string) bool {
 	}
 	return false
 }
+func (s *HashSet) Elements() []string {
+	result := make([]string, 0, s.numElements)
+	for _, bucket := range s.buckets {
+		for _, val := range bucket {
+			result = append(result, val)
+		}
+	}
+	return result
+}
