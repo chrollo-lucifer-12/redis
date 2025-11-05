@@ -7,7 +7,6 @@ import (
 )
 
 type listDB struct {
-	//listMap map[string]*datastructures.LinkedList
 	listMap sync.Map
 }
 

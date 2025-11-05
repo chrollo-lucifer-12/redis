@@ -30,7 +30,19 @@ func (s *server) handleCommands(commands []string, w io.Writer) error {
 		err = s.handleLRangeCommand(commands[1:], w)
 	case "LTRIM":
 		err = s.handleTrimCommand(commands[1:], w)
+	case "SADD":
+		err = s.handleSaddCommand(commands[1:], w)
 	}
+	return err
+}
+
+func (s *server) handleSaddCommand(commands []string, conn io.Writer) error {
+	key := commands[0]
+	elements := commands[1:]
+
+	addedElements := s.setsDB.SADD(key, elements)
+	resp := ":" + strconv.Itoa(addedElements) + "\r\n"
+	_, err := conn.Write([]byte(resp))
 	return err
 }
 
