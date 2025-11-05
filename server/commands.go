@@ -32,7 +32,31 @@ func (s *server) handleCommands(commands []string, w io.Writer) error {
 		err = s.handleTrimCommand(commands[1:], w)
 	case "SADD":
 		err = s.handleSaddCommand(commands[1:], w)
+	case "SREM":
+		err = s.handleSremCommand(commands[1:], w)
+	case "SISMEMBER":
+		err = s.handleSismemberCommand(commands[1:], w)
 	}
+	return err
+}
+
+func (s *server) handleSismemberCommand(commands []string, conn io.Writer) error {
+	key := commands[0]
+	element := commands[1]
+
+	isDeleted := s.setsDB.SISMEMBER(key, element)
+	resp := ":" + strconv.Itoa(isDeleted) + "\r\n"
+	_, err := conn.Write([]byte(resp))
+	return err
+}
+
+func (s *server) handleSremCommand(commands []string, conn io.Writer) error {
+	key := commands[0]
+	element := commands[1]
+
+	removedElements := s.setsDB.SREM(key, element)
+	resp := ":" + strconv.Itoa(removedElements) + "\r\n"
+	_, err := conn.Write([]byte(resp))
 	return err
 }
 

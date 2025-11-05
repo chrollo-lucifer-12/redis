@@ -42,6 +42,17 @@ func (s *HashSet) Insert(key string) {
 	}
 }
 
+func (s *HashSet) Contains(key string) bool {
+	index := s.getIndex(key)
+
+	for _, val := range s.buckets[index] {
+		if val == key {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *HashSet) rehash() {
 	newBucketCount := len(s.buckets) * 2
 	newBuckets := make([][]string, newBucketCount)
@@ -58,4 +69,17 @@ func (s *HashSet) rehash() {
 
 func (s *HashSet) Size() int {
 	return s.numElements
+}
+
+func (s *HashSet) Erase(key string) bool {
+	index := s.getIndex(key)
+	bucket := s.buckets[index]
+	for i, val := range bucket {
+		if val == key {
+			s.buckets[index] = append(bucket[:i], bucket[i+1:]...)
+			s.numElements--
+			return true
+		}
+	}
+	return false
 }

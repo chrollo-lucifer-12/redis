@@ -27,3 +27,29 @@ func (s *setsDB) SADD(key string, elements []string) int {
 	}
 	return s1.Size()
 }
+
+func (s *setsDB) SREM(key string, element string) int {
+	set, ok := s.setsMap.Load(key)
+	if !ok {
+		return 0
+	}
+	s1 := set.(*datastructures.HashSet)
+	if s1.Erase(element) {
+		return 1
+	} else {
+		return 0
+	}
+}
+
+func (s *setsDB) SISMEMBER(key string, element string) int {
+	set, ok := s.setsMap.Load(key)
+	if !ok {
+		return 0
+	}
+	s1 := set.(*datastructures.HashSet)
+	if s1.Contains(element) {
+		return 1
+	} else {
+		return 0
+	}
+}
